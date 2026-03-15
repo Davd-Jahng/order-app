@@ -6,6 +6,17 @@
   flex-direction: column;
 }
 
+.order-success-toast {
+  margin: 0;
+  padding: 0.75rem 1.5rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-h);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+}
+
 /* 헤더: COZY 좌측, 주문하기/관리자 탭 우측 */
 .order-header {
   display: flex;
@@ -30,7 +41,10 @@
 .order-header__tab {
   padding: 0.5rem 1rem;
   border-radius: 6px;
-  text-decoration: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
   color: var(--text);
   font-size: 0.95rem;
 }
@@ -295,4 +309,289 @@
 .cart__order-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ---------- 공통 래퍼 ---------- */
+.app-root {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- 관리자 화면 ---------- */
+.admin-page {
+  flex: 1;
+  padding: 1.5rem;
+  max-width: 1126px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.admin-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  background: var(--code-bg);
+}
+
+.admin-section__title {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+  color: var(--text-h);
+  text-align: left;
+}
+
+/* 관리자 대시보드 */
+.admin-dashboard__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.admin-dashboard__summary {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.admin-dashboard__sales-btn {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.admin-dashboard__sales-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* 총매출 팝업 */
+.admin-sales-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.admin-sales-modal {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
+  max-width: 320px;
+  width: 100%;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.admin-sales-modal__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  color: var(--text-h);
+}
+
+.admin-sales-modal__amount {
+  margin: 0 0 0.25rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.admin-sales-modal__note {
+  margin: 0 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.admin-sales-modal__close {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.admin-sales-modal__close:hover {
+  filter: brightness(1.1);
+}
+
+/* 재고 현황 */
+.admin-inventory__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .admin-inventory__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.admin-inventory-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-inventory-card__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.admin-inventory-card__name {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.admin-inventory-card__stock {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.admin-inventory-card__controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.admin-inventory-card__btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.admin-inventory-card__btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* 주문 현황 */
+.admin-orders__empty {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.admin-orders__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.admin-order-block {
+  margin-bottom: 0.75rem;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.admin-order-block:last-child {
+  margin-bottom: 0;
+}
+
+.admin-order-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.admin-order-item--last,
+.admin-order-item--total {
+  border-bottom: none;
+}
+
+.admin-order-item--total .admin-order-item__desc {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.admin-order-item__time {
+  color: var(--text);
+  min-width: 7rem;
+  flex-shrink: 0;
+}
+
+.admin-order-item__desc {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-h);
+  text-align: left;
+  padding-left: 1rem;
+}
+
+.admin-order-item__price {
+  font-weight: 600;
+  color: var(--text-h);
+  min-width: 5rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.admin-order-item__btn {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.admin-order-item__btn:hover {
+  filter: brightness(1.1);
+}
+
+.admin-order-item__done {
+  font-size: 0.85rem;
+  color: var(--text);
+  min-width: 4.5rem;
+  text-align: right;
+}
+
+.admin-order-item__spacer {
+  min-width: 4.5rem;
+  display: inline-block;
 }
