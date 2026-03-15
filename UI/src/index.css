@@ -1,0 +1,114 @@
+/* 커피 테마 — brown 계열 */
+:root {
+  --text: #5c4a42;
+  --text-h: #2d2420;
+  --bg: #faf6f0;
+  --border: #e0d5c7;
+  --code-bg: #ebe4d9;
+  --accent: #7d5e3a;
+  --accent-bg: rgba(125, 94, 58, 0.12);
+  --accent-border: rgba(125, 94, 58, 0.45);
+  --social-bg: rgba(235, 228, 217, 0.6);
+  --shadow:
+    rgba(45, 36, 32, 0.08) 0 10px 15px -3px,
+    rgba(45, 36, 32, 0.04) 0 4px 6px -2px;
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #d4c4b0;
+    --text-h: #f5f0e8;
+    --bg: #2d2420;
+    --border: #4a3f38;
+    --code-bg: #3d332c;
+    --accent: #c4a35a;
+    --accent-bg: rgba(196, 163, 90, 0.15);
+    --accent-border: rgba(196, 163, 90, 0.45);
+    --social-bg: rgba(61, 51, 44, 0.6);
+    --shadow:
+      rgba(0, 0, 0, 0.35) 0 10px 15px -3px,
+      rgba(0, 0, 0, 0.2) 0 4px 6px -2px;
+  }
+
+  #social .button-icon {
+    filter: invert(1) brightness(2);
+  }
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  width: 1126px;
+  max-width: 100%;
+  margin: 0 auto;
+  text-align: center;
+  border-inline: 1px solid var(--border);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+h1 {
+  font-size: 56px;
+  letter-spacing: -1.68px;
+  margin: 32px 0;
+  @media (max-width: 1024px) {
+    font-size: 36px;
+    margin: 20px 0;
+  }
+}
+h2 {
+  font-size: 24px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 8px;
+  @media (max-width: 1024px) {
+    font-size: 20px;
+  }
+}
+p {
+  margin: 0;
+}
+
+code,
+.counter {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 4px;
+  color: var(--text-h);
+}
+
+code {
+  font-size: 15px;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: var(--code-bg);
+}
