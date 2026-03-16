@@ -1,0 +1,21 @@
+{
+  "name": "cozy-server",
+  "version": "1.0.0",
+  "description": "COZY 커피 주문 앱 백엔드 (Express.js)",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "db:init": "node scripts/init-db.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "express": "^4.21.0",
+    "pg": "^8.20.0"
+  }
+}
