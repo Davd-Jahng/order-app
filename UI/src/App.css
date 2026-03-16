@@ -6,17 +6,6 @@
   flex-direction: column;
 }
 
-.order-success-toast {
-  margin: 0;
-  padding: 0.75rem 1.5rem;
-  text-align: center;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--text-h);
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-}
-
 /* 헤더: COZY 좌측, 주문하기/관리자 탭 우측 */
 .order-header {
   display: flex;
@@ -203,6 +192,27 @@
   font-size: 1.25rem;
   color: var(--text-h);
   text-align: left;
+}
+
+.cart__toast {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.cart__toast--success {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+}
+
+.cart__toast--error {
+  color: #b3261e;
+  background: #ffefef;
+  border: 1px solid #ffb3b0;
 }
 
 .cart__empty {

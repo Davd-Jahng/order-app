@@ -21,6 +21,208 @@ app.get('/api/health', async (req, res) => {
   res.json({ ok: true, message: 'COZY API', database: db })
 })
 
+// 메뉴 목록 + 옵션 + 재고
+app.get('/api/menus', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        m.id,
+        m.name,
+        m.description,
+        m.price,
+        m.image,
+        m.stock,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', o.id,
+              'name', o.name,
+              'extraPrice', o.extra_price
+            )
+          ) FILTER (WHERE o.id IS NOT NULL),
+          '[]'
+        ) AS options
+      FROM menus m
+      LEFT JOIN options o ON o.menu_id = m.id
+      GROUP BY m.id
+      ORDER BY m.id ASC
+      `
+    )
+    res.json(rows)
+  } catch (err) {
+    console.error('GET /api/menus:', err)
+    res.status(500).json({ ok: false, message: '메뉴를 불러오지 못했습니다.' })
+  }
+})
+
+// 재고 증감 (관리자 화면)
+app.patch('/api/menus/:id/stock', async (req, res) => {
+  const id = Number(req.params.id)
+  const { delta } = req.body || {}
+  if (!Number.isFinite(id) || !Number.isFinite(delta)) {
+    return res.status(400).json({ ok: false, message: '잘못된 요청입니다.' })
+  }
+  try {
+    const { rows } = await pool.query(
+      `
+      UPDATE menus
+      SET stock = GREATEST(0, stock + $1)
+      WHERE id = $2
+      RETURNING *
+      `,
+      [delta, id]
+    )
+    if (rows.length === 0) {
+      return res.status(404).json({ ok: false, message: '메뉴를 찾을 수 없습니다.' })
+    }
+    res.json({ ok: true, menu: rows[0] })
+  } catch (err) {
+    console.error('PATCH /api/menus/:id/stock:', err)
+    res.status(500).json({ ok: false, message: '재고를 변경하지 못했습니다.' })
+  }
+})
+
+// 주문 전체 조회 (관리자 화면)
+app.get('/api/orders', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        o.id,
+        o.created_at,
+        o.status,
+        COALESCE(SUM(oi.amount), 0) AS total,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'productId', oi.menu_id,
+              'productName', oi.menu_name,
+              'optionName', oi.option_name,
+              'quantity', oi.quantity,
+              'unitPrice', CASE WHEN oi.quantity > 0 THEN oi.amount / oi.quantity ELSE oi.amount END
+            )
+          ) FILTER (WHERE oi.id IS NOT NULL),
+          '[]'
+        ) AS items
+      FROM orders o
+      LEFT JOIN order_items oi ON oi.order_id = o.id
+      GROUP BY o.id
+      ORDER BY o.id DESC
+      `
+    )
+    res.json(rows)
+  } catch (err) {
+    console.error('GET /api/orders:', err)
+    res.status(500).json({ ok: false, message: '주문 목록을 불러오지 못했습니다.' })
+  }
+})
+
+// 주문 생성 (주문하기 화면)
+app.post('/api/orders', async (req, res) => {
+  const { items } = req.body || {}
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: '주문 항목이 비어 있습니다.' })
+  }
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const orderResult = await client.query(
+      `INSERT INTO orders (status) VALUES ('주문접수') RETURNING id, created_at, status`
+    )
+    const order = orderResult.rows[0]
+
+    for (const item of items) {
+      const { productId, productName, optionNames, quantity, unitPrice } = item
+      const amount = Number(unitPrice) * Number(quantity)
+      await client.query(
+        `
+        INSERT INTO order_items (
+          order_id,
+          menu_id,
+          menu_name,
+          option_name,
+          quantity,
+          amount
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+        [
+          order.id,
+          productId,
+          productName,
+          Array.isArray(optionNames) ? optionNames.join(', ') : optionNames || null,
+          quantity,
+          amount,
+        ]
+      )
+    }
+
+    await client.query('COMMIT')
+    res.status(201).json({ ok: true, orderId: order.id })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    console.error('POST /api/orders:', err)
+    res.status(500).json({ ok: false, message: '주문을 생성하지 못했습니다.' })
+  } finally {
+    client.release()
+  }
+})
+
+// 주문 상태 변경 + 제조완료 시 재고 차감
+app.patch('/api/orders/:id/status', async (req, res) => {
+  const id = Number(req.params.id)
+  const { status } = req.body || {}
+  if (!Number.isFinite(id) || typeof status !== 'string') {
+    return res.status(400).json({ ok: false, message: '잘못된 요청입니다.' })
+  }
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const currentRes = await client.query('SELECT status FROM orders WHERE id = $1', [id])
+    if (currentRes.rows.length === 0) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ ok: false, message: '주문을 찾을 수 없습니다.' })
+    }
+    const currentStatus = currentRes.rows[0].status
+
+    await client.query('UPDATE orders SET status = $1 WHERE id = $2', [status, id])
+
+    if (status === '제조완료' && currentStatus !== '제조완료') {
+      const { rows: items } = await client.query(
+        `
+        SELECT menu_id, quantity
+        FROM order_items
+        WHERE order_id = $1
+        `,
+        [id]
+      )
+      for (const item of items) {
+        await client.query(
+          `
+          UPDATE menus
+          SET stock = GREATEST(0, stock - $1)
+          WHERE id = $2
+          `,
+          [item.quantity, item.menu_id]
+        )
+      }
+    }
+
+    await client.query('COMMIT')
+    res.json({ ok: true })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    console.error('PATCH /api/orders/:id/status:', err)
+    res.status(500).json({ ok: false, message: '주문 상태를 변경하지 못했습니다.' })
+  } finally {
+    client.release()
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`)
 })

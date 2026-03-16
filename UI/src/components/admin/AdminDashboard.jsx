@@ -48,9 +48,19 @@ function AdminDashboard({ orders }) {
   }
 
   const counts = ORDER_STATUSES.reduce((acc, status) => {
-    acc[status] = orders.filter((o) => o.status === status).length
+    const ordersByStatus = orders.filter((o) => o.status === status)
+    acc[status] = ordersByStatus.reduce(
+      (sum, o) =>
+        sum + (o.items ?? []).reduce((s, item) => s + (item.quantity ?? 0), 0),
+      0
+    )
     return acc
   }, {})
+
+  const totalCups = orders.reduce(
+    (sum, o) => sum + (o.items ?? []).reduce((s, item) => s + (item.quantity ?? 0), 0),
+    0
+  )
 
   const totalSales = orders
     .filter((o) => o.status === '제조완료')
@@ -61,7 +71,7 @@ function AdminDashboard({ orders }) {
       <h2 className="admin-section__title">관리자 대시보드</h2>
       <div className="admin-dashboard__row">
         <p className="admin-dashboard__summary">
-          총 주문 {orders.length} / 주문 접수 {counts['주문접수']} / 제조 중 {counts['제조중']} / 제조 완료 {counts['제조완료']}
+          총 주문 {totalCups} / 주문 접수 {counts['주문접수']} / 제조 중 {counts['제조중']} / 제조 완료 {counts['제조완료']}
         </p>
         <button
           ref={salesButtonRef}

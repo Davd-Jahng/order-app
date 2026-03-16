@@ -1,54 +1,41 @@
 import { useState, useEffect, useRef } from 'react'
-import { MENU_ITEMS, OPTIONS } from './data/menu'
 import Header from './components/Header'
 import MenuCard from './components/MenuCard'
 import Cart from './components/Cart'
 import AdminPage from './components/admin/AdminPage'
 import './App.css'
 
-const STORAGE_KEYS = { orders: 'cozy-orders', inventory: 'cozy-inventory' }
-
-function getInitialInventory() {
-  return MENU_ITEMS.reduce((acc, item) => {
-    acc[item.id] = 10
-    return acc
-  }, {})
-}
-
-function loadStoredOrders() {
-  try {
-    const s = localStorage.getItem(STORAGE_KEYS.orders)
-    return s ? JSON.parse(s) : []
-  } catch {
-    return []
-  }
-}
-
-function loadStoredInventory() {
-  const defaults = getInitialInventory()
-  try {
-    const s = localStorage.getItem(STORAGE_KEYS.inventory)
-    if (!s) return defaults
-    const parsed = JSON.parse(s)
-    return { ...defaults, ...parsed }
-  } catch {
-    return defaults
-  }
-}
-
 function App() {
   const [view, setView] = useState('order')
+  const [menuItems, setMenuItems] = useState([])
   const [cart, setCart] = useState([])
-  const [orders, setOrders] = useState(loadStoredOrders)
-  const [inventory, setInventory] = useState(loadStoredInventory)
+  const [orders, setOrders] = useState([])
+  const [inventory, setInventory] = useState({})
   const [orderSuccessMessage, setOrderSuccessMessage] = useState('')
+  const [orderErrorMessage, setOrderErrorMessage] = useState('')
   const completedOrderIdsRef = useRef(new Set())
 
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
+
+  // 메뉴 및 재고 초기 로드
   useEffect(() => {
-    if (!orderSuccessMessage) return
-    const t = setTimeout(() => setOrderSuccessMessage(''), 3000)
-    return () => clearTimeout(t)
-  }, [orderSuccessMessage])
+    async function fetchMenus() {
+      try {
+        const res = await fetch(`${API_BASE}/api/menus`)
+        if (!res.ok) throw new Error('메뉴 조회 실패')
+        const data = await res.json()
+        setMenuItems(data)
+        const inv = {}
+        for (const m of data) {
+          inv[m.id] = m.stock ?? 0
+        }
+        setInventory(inv)
+      } catch (err) {
+        console.error('메뉴 불러오기 오류:', err)
+      }
+    }
+    fetchMenus()
+  }, [API_BASE])
 
   useEffect(() => {
     completedOrderIdsRef.current = new Set(
@@ -58,13 +45,43 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 초기 주문 목록 로드 (관리자 화면용)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(orders))
-  }, [orders])
+    async function fetchOrders() {
+      try {
+        const res = await fetch(`${API_BASE}/api/orders`)
+        if (!res.ok) throw new Error('주문 조회 실패')
+        const data = await res.json()
+        setOrders(
+          data.map((o) => ({
+            id: o.id,
+            createdAt: o.created_at,
+            items: (o.items || []).map((it) => ({
+              productId: it.productId ?? it.menu_id,
+              productName: it.productName ?? it.menu_name,
+              optionNames: it.optionNames ?? it.optionName ?? '',
+              quantity: it.quantity,
+              unitPrice: it.unitPrice ?? (it.quantity ? it.amount / it.quantity : it.amount),
+            })),
+            total: o.total,
+            status: o.status,
+          }))
+        )
+      } catch (err) {
+        console.error('주문 불러오기 오류:', err)
+      }
+    }
+    fetchOrders()
+  }, [API_BASE])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.inventory, JSON.stringify(inventory))
-  }, [inventory])
+    if (!orderSuccessMessage && !orderErrorMessage) return
+    const t = setTimeout(() => {
+      setOrderSuccessMessage('')
+      setOrderErrorMessage('')
+    }, 3000)
+    return () => clearTimeout(t)
+  }, [orderSuccessMessage, orderErrorMessage])
 
   const addToCart = (payload) => {
     setCart((prev) => {
@@ -107,7 +124,7 @@ function App() {
     })
   }
 
-  const handleOrder = () => {
+  const handleOrder = async () => {
     if (cart.length === 0) return
     const currentCart = [...cart]
 
@@ -116,7 +133,9 @@ function App() {
     for (const order of orders) {
       if (order.status === '제조완료') continue
       for (const item of order.items ?? []) {
-        const pid = item.productId ?? MENU_ITEMS.find((m) => m.name === item.productName)?.id
+        const pid =
+          item.productId ??
+          menuItems.find((m) => m.name === item.productName || m.id === item.productId)?.id
         if (pid != null) {
           reservedByProduct[pid] = (reservedByProduct[pid] ?? 0) + (item.quantity ?? 0)
         }
@@ -136,7 +155,9 @@ function App() {
       const reserved = reservedByProduct[productId] ?? 0
       const available = Math.max(0, stock - reserved)
       if (available < need) {
-        const menuItem = MENU_ITEMS.find((m) => m.id === productId)
+        const menuItem = menuItems.find(
+          (m) => String(m.id) === String(productId) || m.id === productId
+        )
         insufficient.push({
           name: menuItem?.name ?? productId,
           need,
@@ -147,19 +168,17 @@ function App() {
 
     if (insufficient.length > 0) {
       const message =
-        '다음 메뉴의 재고가 부족합니다.\n\n' +
+        '다음 메뉴의 재고가 부족합니다. ' +
         insufficient
-          .map(({ name, need, available }) => `· ${name}: 주문 ${need}개, 가용 재고 ${available}개`)
-          .join('\n') +
-        '\n\n(가용 재고 = 재고 현황 - 제조 완료 전 주문 건수)'
-      alert(message)
+          .map(({ name, need, available }) => `${name}: 주문 ${need}개, 가용 재고 ${available}개`)
+          .join(' / ') +
+        ' (가용 재고 = 재고 현황 - 제조 완료 전 주문 건수)'
+      setOrderErrorMessage(message)
       return
     }
 
     const total = currentCart.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0)
-    const newOrder = {
-      id: `order-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      createdAt: new Date().toISOString(),
+    const payload = {
       items: currentCart.map((it) => ({
         productId: it.productId,
         productName: it.productName,
@@ -168,48 +187,101 @@ function App() {
         unitPrice: it.unitPrice,
       })),
       total,
-      status: '접수대기',
     }
-    setOrders((prev) => [...prev, newOrder])
-    setCart([])
-    setOrderSuccessMessage('주문이 접수되었습니다.')
+
+    try {
+      const res = await fetch(`${API_BASE}/api/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error('주문 생성 실패')
+      const { orderId } = await res.json()
+
+      const newOrder = {
+        id: orderId,
+        createdAt: new Date().toISOString(),
+        items: currentCart.map((it) => ({
+          productId: it.productId,
+          productName: it.productName,
+          optionNames: it.optionNames || '',
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+        })),
+        total,
+        status: '주문접수',
+      }
+      setOrders((prev) => [...prev, newOrder])
+      setCart([])
+      setOrderSuccessMessage('주문이 접수되었습니다.')
+      setOrderErrorMessage('')
+    } catch (err) {
+      console.error('주문 오류:', err)
+      setOrderErrorMessage('주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')
+    }
   }
 
-  const handleInventoryAdjust = (productId, delta) => {
-    setInventory((prev) => {
-      const next = { ...prev }
-      const current = next[productId] ?? 0
-      const newVal = current + delta
-      next[productId] = newVal < 0 ? 0 : newVal
-      return next
-    })
+  const handleInventoryAdjust = async (productId, delta) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/menus/${productId}/stock`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delta }),
+      })
+      if (!res.ok) throw new Error('재고 변경 실패')
+      const { menu } = await res.json()
+      setInventory((prev) => ({
+        ...prev,
+        [menu.id]: menu.stock ?? 0,
+      }))
+    } catch (err) {
+      console.error('재고 조정 오류:', err)
+      alert('재고를 변경하지 못했습니다.')
+    }
   }
 
-  const handleOrderStatusChange = (orderId, newStatus) => {
+  const handleOrderStatusChange = async (orderId, newStatus) => {
     const order = orders.find((o) => o.id === orderId)
     const alreadyDeducted = completedOrderIdsRef.current.has(orderId)
-    if (
-      newStatus === '제조완료' &&
-      order?.items &&
-      order.status !== '제조완료' &&
-      !alreadyDeducted
-    ) {
-      completedOrderIdsRef.current.add(orderId)
-      setInventory((prev) => {
-        const next = { ...prev }
-        for (const item of order.items) {
-          const pid = item.productId ?? MENU_ITEMS.find((m) => m.name === item.productName)?.id
-          if (pid != null) {
-            const current = next[pid] ?? 0
-            next[pid] = Math.max(0, current - item.quantity)
-          }
-        }
-        return next
+    try {
+      const res = await fetch(`${API_BASE}/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
       })
+      if (!res.ok) throw new Error('상태 변경 실패')
+
+      if (
+        newStatus === '제조완료' &&
+        order?.items &&
+        order.status !== '제조완료' &&
+        !alreadyDeducted
+      ) {
+        completedOrderIdsRef.current.add(orderId)
+        // 재고는 서버에서 차감되었으므로, 최신 메뉴 정보를 다시 가져온다.
+        try {
+          const resMenus = await fetch(`${API_BASE}/api/menus`)
+          if (resMenus.ok) {
+            const data = await resMenus.json()
+            const inv = {}
+            for (const m of data) {
+              inv[m.id] = m.stock ?? 0
+            }
+            setInventory(inv)
+            setMenuItems(data)
+          }
+        } catch (e) {
+          console.error('재고 갱신 오류:', e)
+        }
+      }
+
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+      )
+    } catch (err) {
+      console.error('주문 상태 변경 오류:', err)
+      alert('주문 상태를 변경하지 못했습니다.')
     }
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    )
   }
 
   return (
@@ -217,19 +289,14 @@ function App() {
       <Header currentView={view} onNavigate={setView} />
       {view === 'order' && (
         <div className="order-page">
-          {orderSuccessMessage && (
-            <p className="order-success-toast" role="status" aria-live="polite">
-              {orderSuccessMessage}
-            </p>
-          )}
           <main className="order-main">
             <section className="menu-section">
               <div className="menu-grid">
-                {MENU_ITEMS.map((item) => (
+                {menuItems.map((item) => (
                   <MenuCard
                     key={item.id}
                     item={item}
-                    options={OPTIONS}
+                    options={item.options ?? []}
                     onAddToCart={addToCart}
                   />
                 ))}
@@ -239,6 +306,8 @@ function App() {
               items={cart}
               onQuantityChange={updateQuantity}
               onOrder={handleOrder}
+              successMessage={orderSuccessMessage}
+              errorMessage={orderErrorMessage}
             />
           </main>
         </div>
@@ -247,7 +316,7 @@ function App() {
         <AdminPage
           orders={orders}
           inventory={inventory}
-          menuItems={MENU_ITEMS}
+          menuItems={menuItems}
           onInventoryAdjust={handleInventoryAdjust}
           onOrderStatusChange={handleOrderStatusChange}
         />

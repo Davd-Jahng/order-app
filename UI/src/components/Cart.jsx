@@ -1,11 +1,22 @@
 import { formatPrice } from '../utils/formatters'
 
-function Cart({ items, onQuantityChange, onOrder }) {
+function Cart({ items, onQuantityChange, onOrder, successMessage, errorMessage }) {
   const total = items.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0)
 
   return (
     <section className="cart">
       <h2 className="cart__title">장바구니</h2>
+      {(successMessage || errorMessage) && (
+        <div
+          className={`cart__toast ${
+            errorMessage ? 'cart__toast--error' : 'cart__toast--success'
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {errorMessage || successMessage}
+        </div>
+      )}
       {items.length === 0 ? (
         <p className="cart__empty">장바구니가 비어 있습니다.</p>
       ) : (
