@@ -1,5 +1,6 @@
 const path = require('path')
 require('dotenv').config({ path: path.join(__dirname, '.env') })
+const fs = require('fs')
 const express = require('express')
 const cors = require('cors')
 const { pool } = require('./db/pool')
@@ -223,6 +224,20 @@ app.patch('/api/orders/:id/status', async (req, res) => {
   }
 })
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`)
-})
+async function bootstrap() {
+  try {
+    const schemaPath = path.join(__dirname, 'db', 'schema.sql')
+    const schemaSql = fs.readFileSync(schemaPath, 'utf8')
+    await pool.query(schemaSql)
+    console.log('Database schema is ready.')
+  } catch (err) {
+    console.error('Failed to prepare database schema:', err.message)
+    process.exit(1)
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`)
+  })
+}
+
+bootstrap()
