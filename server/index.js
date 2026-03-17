@@ -230,6 +230,69 @@ async function bootstrap() {
     const schemaSql = fs.readFileSync(schemaPath, 'utf8')
     await pool.query(schemaSql)
     console.log('Database schema is ready.')
+
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM menus')
+    if (rows[0].count === 0) {
+      const defaultMenus = [
+        {
+          name: '아메리카노(HOT)',
+          price: 4000,
+          description: '따뜻한 에스프레소에 뜨거운 물을 더한 클래식 커피',
+          image: '/images/americano-hot.jpg',
+          stock: 10,
+        },
+        {
+          name: '아메리카노(ICE)',
+          price: 4000,
+          description: '시원한 에스프레소에 얼음과 물을 더한 커피',
+          image: '/images/americano-ice.jpg',
+          stock: 10,
+        },
+        {
+          name: '카페라떼',
+          price: 5000,
+          description: '에스프레소와 스팀 밀크가 어우러진 부드러운 라떼',
+          image: '/images/caffe-latte.jpg',
+          stock: 10,
+        },
+      ]
+      const defaultOptions = [
+        { name: '샷 추가', extraPrice: 500 },
+        { name: '시럽 추가', extraPrice: 0 },
+      ]
+
+      const client = await pool.connect()
+      try {
+        await client.query('BEGIN')
+        for (const menu of defaultMenus) {
+          const menuRes = await client.query(
+            `
+            INSERT INTO menus (name, description, price, image, stock)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id
+            `,
+            [menu.name, menu.description, menu.price, menu.image, menu.stock]
+          )
+          const menuId = menuRes.rows[0].id
+          for (const option of defaultOptions) {
+            await client.query(
+              `
+              INSERT INTO options (name, extra_price, menu_id)
+              VALUES ($1, $2, $3)
+              `,
+              [option.name, option.extraPrice, menuId]
+            )
+          }
+        }
+        await client.query('COMMIT')
+        console.log('Default menu seed completed.')
+      } catch (err) {
+        await client.query('ROLLBACK')
+        throw err
+      } finally {
+        client.release()
+      }
+    }
   } catch (err) {
     console.error('Failed to prepare database schema:', err.message)
     process.exit(1)
