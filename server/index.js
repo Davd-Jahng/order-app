@@ -26,6 +26,31 @@ app.use((req, res, next) => {
 })
 app.use(express.json())
 
+app.get('/api/schema', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT table_name, column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+      ORDER BY table_name, ordinal_position
+    `)
+    const schema = {}
+    for (const row of rows) {
+      if (!schema[row.table_name]) schema[row.table_name] = []
+      schema[row.table_name].push({
+        column: row.column_name,
+        type: row.data_type,
+        nullable: row.is_nullable,
+        default: row.column_default,
+      })
+    }
+    res.json(schema)
+  } catch (err) {
+    console.error('GET /api/schema:', err)
+    res.status(500).json({ ok: false, message: 'スキーマを取得できませんでした。' })
+  }
+})
+
 app.get('/api/health', async (req, res) => {
   let db = 'disconnected'
   try {
